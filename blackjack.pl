@@ -1,25 +1,6 @@
 use warnings;
 use strict;
 
-#################################################
-#						#
-#		   MoSCoW			#
-#						#
-# TODO M:					#
-#         					#
-# TODO S:					#
-#         - Comments				#
-#         - Docs				#
-#	  - Change bet				#
-#	  - Game state object			#
-# TODO C:					#
-#	  - Player rebuy message		#
-#						#
-# TODO W: 					#
-#         - ASCII welcome screen		#
-#						#
-#################################################
-
 my $DEBUG = 0;
 my $showscores = 0;
 
