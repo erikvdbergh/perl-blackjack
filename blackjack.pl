@@ -18,6 +18,7 @@ if (-f $savefilepath) {
   chomp($playercash = <$savefile>);
 }
 
+#player was kicked out for being broke
 if ($playercash == 0) {
   $playercash = 100;
 }
@@ -43,7 +44,10 @@ my $cards_dealt = 0;
 my $newlines = 0;
 my $bet = 5;
 
+# carriage return character
 my $cr="\x0D";
+
+# card symbols Unicode
 my $spade="\xE2\x99\xA0";
 my $club="\xE2\x99\xA3";
 my $diamond="\xE2\x99\xA6";
@@ -59,16 +63,24 @@ my @playerhand;
 
 my $playerturn = 0;
 
-sub save {
+my $msg_speed = 0.5;
+
+# Saves playercash to the savefile
+sub save() {
   if ($savefile) {
     print $savefile "$playercash\n";
     seek($savefile, 0, 0);
   }
 }
+
+# Returns a newline and advances newline counter
+# Why? Because we need to know how far back we need to go to refresh the screen
 sub newline() {
-  $newlines++; return "\n";
+  $newlines++; 
+  return "\n";
 }
 
+# Gets player input and counts the newlines in it
 sub getline() {
   my $c = <>;
   while ($c =~ m/\n/) {
@@ -78,15 +90,15 @@ sub getline() {
   return $c;
 }
 
+# Deals a card to a hand
+# @param {array} - hand to deal card to
 sub deal_card(\@) {
 
+  # This makes it possible to card count, good luck geniuses
   if ($cards_dealt == 52) {
-#    if ($DEBUG) {
-      print_state("Shuffling deck");
-#    }
+    print_state("Shuffling deck", $msg_speed);
     @deck = (0..51);
     $cards_dealt = 0;
-    
   }
 
   my $card = splice(@deck, int(rand(scalar(@deck))), 1);
@@ -94,6 +106,8 @@ sub deal_card(\@) {
   $cards_dealt++;
 }
 
+# returns a string representation of a card (symbol and value)
+# @param {int} - card to stringify
 sub card_to_str($) {
   my $s = "";
   my $cardval = int($_[0] / 4) + 1;
@@ -113,37 +127,60 @@ sub card_to_str($) {
   return $s;
 }
 
+# initiates a new game: checks if player is broke, if not takes bet. Clears hands and deals new cards,
+# printing after each dealt card.
 sub new_game() {
   if ($playercash <= 0) {
-    print_state("You're broke!", 1);
+    get_input("You're broke!");
     die("Game over!\n");
   }
+
   @cpuhand = ();
   @playerhand = ();
  
   changecash(-$bet);
 
   deal_card(@playerhand);
-  print_state("Dealing cards...");
+  print_state("Dealing cards...", $msg_speed);
   deal_card(@cpuhand);
-  print_state("Dealing cards...");
+  print_state("Dealing cards...", $msg_speed);
   deal_card(@playerhand);
-  print_state("Dealing cards...");
+  print_state("Dealing cards...", $msg_speed);
   deal_card(@cpuhand);
-  print_state("Dealing cards...");
+  print_state("Dealing cards...", $msg_speed);
   
   #aces test
-  #push(@cpuhand, (0,1,2,3, 6));
+  #push(@cpuhand, (0,1,2,3,6));
 }
+
+# This is some nifty unicode / shell stuff. It moves the cursor back the amount of newlines we
+# have printed through newline(), prints empty lines to clear the screen, and moves the cursor back again
+# so that we can print a new screen.
 sub reset_screen {
+
+  # \033[xA is the unicode move cursor up character, where x is the amount of lines
   my $backlines =  "\033[$newlines"."A";
   print $backlines;
+
+  # \033[2K is the clear line character, this loop clears the screen
   for (1..$newlines) { print "\033[2K\n"; }
   $newlines = 0;
+  
+  # move the cursor back again so we can start printing new stuff
   print $backlines;
 }
 
-sub print_state {
+# Print a message and wait for user input
+# @param {String} - Message to print
+sub get_input($) {
+  print_state(shift,0);
+  return getline();
+}
+
+# Print a message and continue after a timeout
+# @param {String} - The message to print
+# @param {float}  - Sleep timeout
+sub print_state($$) {
   print_table();
   print shift.newline();
 
@@ -152,52 +189,65 @@ sub print_state {
      print "newlines = $newlines".newline();
   }
 
-  if (shift) { 
-    return getline();
-  } else {
-    select(undef,undef,undef,0.5);
+  else {
+    select(undef,undef,undef,shift);
   }
-
 }
 
+# Print the game status: dealer hand, player's hand, the hand scores if that option is 
+# set and finally the player's cash
 sub print_table() {
   reset_screen();
+
   print "Dealer hand:".newline();
+
   for (my $i = 0; $i < scalar(@cpuhand); $i++) {
+    # for the dealer we print a folded card and an open one while it is the players turn
     if ($i == 0 && $playerturn) {
       print $cardback." ";
     } else {
       print card_to_str($cpuhand[$i]);
     }
   }
+
   print newline();
   if ($showscores) {
     print "Dealer score: ".sum_cards(@cpuhand);
   }
+
   print newline()."Your hand:".newline();
-  for my $card (@playerhand) { print card_to_str($card) };
+  for my $card (@playerhand) { print card_to_str($card); }
+
   print newline();
   if ($showscores) {
     print "Your score: ".sum_cards(@playerhand);
   }
   print newline();
+
   print "Cash: \$$playercash";
   print newline();
 }
 
+# A testing method that prints the whole deck to check all card symbols and such
 sub print_deck() {
   for my $card (@deck) { print int($card / 4) + 1; print $symbols[$card % 4]." "; }
   print "\n";
 }
 
+# Determine the hand score
+# @param {Array} - the hand to sum
 sub sum_cards(@){
   my $sum = 0;
   my $aces = 0;
+
   for my $card (@_) {
     my $cv = int($card / 4) + 1;
+    # 10, J, Q and K are all 10
     if ($cv > 10) {
       $cv = 10;
     }
+
+    # Aces are 11, see below for optional 1 value of ace
     if ($cv == 1) {
       $aces++;
       $cv = 11;
@@ -205,11 +255,12 @@ sub sum_cards(@){
     $sum += $cv;
   }
 
-  #blackjack check
+  #blackjack check, return special value if true
   if ($sum == 21 && scalar(@_) == 2 && $aces == 1 ) {
     return 99;
   } 
   
+  # If the score is over 21 aces can be worth 1 to accomodate
   while ($sum > 21 && $aces > 0) {
     $sum -= 10;
     $aces--;
@@ -217,23 +268,28 @@ sub sum_cards(@){
   return $sum;
 }
 
-sub changecash {
+# Add or subtract a players cash and save
+# @param {int} - amount to add or subtract (positive / negative)
+sub changecash($) {
   $playercash += shift;
   save();
 }
 
+# Player has won by beating the dealer
 sub player_win {
   my $prize = 2 * $bet;
   changecash($prize);
-  print_state(shift."You win \$$prize!", 1);
+  get_input(shift."You win \$$prize!");
 }
 
+# Player has blackjack
 sub player_bj {
   my $prize = 4 * $bet;
   changecash($prize);
-  print_state("Blackjack! You win \$$prize!", 1);
+  get_input("Blackjack! You win \$$prize!");
 }
 
+# Game is push
 sub game_push() {
   # I have no idea why this is necessary, but otherwise the play area shifts down when the cpu stands
   # and the game resolves as push. ¯\_(ツ)_/¯
@@ -242,18 +298,15 @@ sub game_push() {
     $cpustand = 0;
   }
   changecash($bet);
-  print_state("Push.", 1);
+  get_input("Push.");
 }
 
+# Player lost is bust or dealer has more
 sub player_lose {
-  if ($DEBUG) {
-    print $dlog "player_lose, newlines: $newlines\n";
-  }
-  print_state(shift."Better luck next time!", 1);
+  get_input(shift."Better luck next time!");
 }
 
-#print_deck();
-
+# Main game loop
 while(1) {
   $playerturn = 1;
   new_game();
@@ -271,24 +324,29 @@ while(1) {
     next;
   }
 
-  # players turn
   my $action = "";
 
   if ($firstgame && !$savefile) {
-    print_state("Error writing to savefile: $saveerror. Your cash won't be saved. Press Enter to continue", 1);
+    get_input("Error writing to savefile: $saveerror. Your cash won't be saved. Press Enter to continue");
   }
   $firstgame = 0;
 
+  # player turn
   while(1) {
-    $action = print_state("(H)it or (S)tay?", 1);
+    $action = get_input("(H)it or (S)tay?");
+
+    # Hit
     if ($action eq "h" || $action eq "H" || $action eq "+") {
       deal_card(@playerhand);
+    # Stay
     } elsif ( $action eq "s" || $action eq "S" || $action eq ".") {
       last;
+    # No action could be determined
     } else {
-      $action = print_state("Not sure what you want, try again?");
+      $action = print_state("Not sure what you want, try again?", 1.0);
     }
     
+    # See if player is bust
     if (sum_cards(@playerhand) > 21) {
       print_table();
       $bust = 1;
@@ -296,24 +354,27 @@ while(1) {
     }
   } 
   
-  # cpu turn 
   $playerturn = 0;
+
   if (!$bust) {
-    print_state("Dealer's turn");
+    print_state("Dealer's turn", $msg_speed);
+
+    # Cpu turn 
     while (1) {
       my $cpus = sum_cards(@cpuhand);
+
+      # Cpu hits to soft 17, as in most casinos
       if ($cpus <= 16) {
         deal_card(@cpuhand);
-        print_state("Dealer hits.");
+        print_state("Dealer hits.", $msg_speed);
       } else {
         if ($cpus <= 21) {
-          print_state("Dealer stands.");
+          print_state("Dealer stands.", $msg_speed);
           $cpustand = 1;
           $newlines++;
         }
         last;
       }
-#      select(undef,undef,undef,0.2);
     }
   } 
 

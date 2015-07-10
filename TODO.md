@@ -3,6 +3,7 @@
 Must have, should have, could have, would be nice to have
 
 ### M(ust have)
+- Check if terminal is unicode enabled
 
 ### S(hould have)
 - Comments
@@ -15,3 +16,5 @@ Must have, should have, could have, would be nice to have
 
 ### W(ould be nice)
 - ASCII welcome screen
+- Insurance
+- Split option
