@@ -17,4 +17,4 @@ Must have, should have, could have, would be nice to have
 ### W(ould be nice)
 - ASCII welcome screen
 - Insurance
-- Split option
+- Split option , this is tricky
