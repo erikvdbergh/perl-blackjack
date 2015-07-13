@@ -1,6 +1,38 @@
 use warnings;
 use strict;
 
+use Pod::Usage;
+use Getopt::Long;
+
+=head1 SYNOPSIS
+
+blackjack.pl [options]
+
+=head1 DESCRIPTION
+
+A simple but sophisticated blackjack game. House rules: Dealer must hit to soft 17, blackjack pays 4:1.
+
+This game uses a bunch of fancy unicode characters, if your terminal starts to act funny see the 
+--disable-unicode option. If you are forced to use this option, try resizing your terminal until the
+line that reads "Dealer hand:" is at the top. This will make it look like a refreshing screen as it does
+with unicode support.
+
+Use 'h' and 's' to hit or stand, alternatively use '+' or '.' to hit or stand respectively for easy playing from the numpad.
+
+=head1 OPTIONS
+
+ --disable-unicode, -d	Do not use unicode characters. The game will look a lot worse, 
+			so try to use a different terminal or check your locale settings.
+
+ --save-file, -s	Use this savefile instead of the default ~/.pbj
+
+
+=head1 AUTHOR
+
+Erik van den Bergh
+
+=cut
+
 my $DEBUG = 0;
 my $showscores = 0;
 
@@ -8,6 +40,24 @@ my $playercash = 100;
 
 # peanut butter jelly time! Or Perl BlackJack...
 my $savefilepath = $ENV{"HOME"}."/.pbj";
+my $no_unicode = 1;
+my $help = 0;
+my $man = 0;
+
+GetOptions ("save-file=s" 	=> \$savefilepath,
+            "disable-unicode" 	=> \$no_unicode,
+	    "help"		=> \$help,
+            "man"		=> \$man)
+or die (pod2usage(1));
+
+if ($help) {
+  pod2usage(-verbose => 1,
+            -msg     => "Try --man for a full description of options\n");
+}
+
+if ($man) {
+  pod2usage(-verbose => 2);
+}
 
 # save file test for no permission
 #my $savefilepath = "/usr/.pbj";
@@ -123,7 +173,12 @@ sub card_to_str($) {
   } else { 
     $s .= $cardval;
   }
-  $s .= $symbols[$_[0] % 4]." "; 
+  if ($no_unicode) {
+    my @syms = ("S", "C", "D", "H");
+    $s .= $syms[$_[0] % 4]." ";
+  } else {
+    $s .= $symbols[$_[0] % 4]." "; 
+  }
   return $s;
 }
 
@@ -156,8 +211,10 @@ sub new_game() {
 # This is some nifty unicode / shell stuff. It moves the cursor back the amount of newlines we
 # have printed through newline(), prints empty lines to clear the screen, and moves the cursor back again
 # so that we can print a new screen.
-sub reset_screen {
-
+sub reset_screen() {
+  if ($no_unicode) {
+    return
+  }
   # \033[xA is the unicode move cursor up character, where x is the amount of lines
   my $backlines =  "\033[$newlines"."A";
   print $backlines;
@@ -204,7 +261,12 @@ sub print_table() {
   for (my $i = 0; $i < scalar(@cpuhand); $i++) {
     # for the dealer we print a folded card and an open one while it is the players turn
     if ($i == 0 && $playerturn) {
-      print $cardback." ";
+      if ($no_unicode) {
+        print "X ";
+      } else { 
+        print $cardback." ";
+      }
+  
     } else {
       print card_to_str($cpuhand[$i]);
     }
