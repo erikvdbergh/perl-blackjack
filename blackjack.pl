@@ -40,7 +40,7 @@ my $playercash = 100;
 
 # peanut butter jelly time! Or Perl BlackJack...
 my $savefilepath = $ENV{"HOME"}."/.pbj";
-my $no_unicode = 1;
+my $no_unicode = 0;
 my $help = 0;
 my $man = 0;
 
